@@ -24,9 +24,6 @@
   </script>
   <!-- ExcelJS for reading styles & background colors -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-  <!-- jsPDF & AutoTable for client-side PDF generation -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
   <style>
     ::-webkit-scrollbar {
       width: 6px;
@@ -55,7 +52,7 @@
         Invoice Audit & Missing Tracker
       </h1>
       <p class="text-slate-400 mt-2 text-sm max-w-md mx-auto">
-        Scan yellow-highlighted invoices, view unhighlighted cell counts, and generate PDF / CSV audit reports.
+        Scan yellow-highlighted invoices, identify non-yellow entries, and verify invoice sequences efficiently.
       </p>
     </header>
 
@@ -200,21 +197,13 @@
             <p class="text-xs text-slate-400" id="reportSummarySubtitle">Summary of evaluated invoices</p>
           </div>
 
-          <!-- Final Report Download Buttons (PDF & CSV) -->
-          <div class="flex flex-wrap items-center gap-2">
-            <button 
-              id="downloadPdfBtn" 
-              class="hidden px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-rose-950/50 transition flex items-center justify-center gap-2"
-            >
-              <span>📄</span> Download Report (PDF)
-            </button>
-            <button 
-              id="downloadReportBtn" 
-              class="hidden px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-emerald-950/50 transition flex items-center justify-center gap-2"
-            >
-              <span>📥</span> Download CSV
-            </button>
-          </div>
+          <!-- Final Report Download Button -->
+          <button 
+            id="downloadReportBtn" 
+            class="hidden px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-emerald-950/50 transition flex items-center justify-center gap-2"
+          >
+            <span>📥</span> Download Final Report (CSV)
+          </button>
         </div>
 
         <!-- Metric Badges -->
@@ -277,7 +266,7 @@
   <script>
     let currentWorkbook = null;
     let yellowNumbers = new Set();
-    let nonYellowNumbers = new Set();
+    let nonYellowNumbers = new Set(); // Stores numeric values in sheet that are NOT yellow
     let missingList = [];
     let detectedMin = null;
     let detectedMax = null;
@@ -314,7 +303,6 @@
     const resultsSection = document.getElementById('resultsSection');
     const reportSummarySubtitle = document.getElementById('reportSummarySubtitle');
     const downloadReportBtn = document.getElementById('downloadReportBtn');
-    const downloadPdfBtn = document.getElementById('downloadPdfBtn');
     const statusAlert = document.getElementById('statusAlert');
     const tableContainer = document.getElementById('tableContainer');
     const missingTableBody = document.getElementById('missingTableBody');
@@ -490,7 +478,6 @@
         statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-amber-950/50 border-amber-800 text-amber-300';
         statusAlert.innerHTML = `⚠️ No yellow-highlighted cells containing invoice numbers were found in <strong>"${sheet.name}"</strong> (Total non-yellow cells: ${nonYellowCellsCount}).`;
         downloadReportBtn.classList.add('hidden');
-        downloadPdfBtn.classList.add('hidden');
         tableContainer.classList.add('hidden');
         resetMetrics(0, 0, 0, 0);
         return;
@@ -526,6 +513,7 @@
       endNum.value = '';
     });
 
+    // Memory-Safe Processing Logic
     findBtn.addEventListener('click', () => {
       const start = parseInt(startNum.value, 10);
       const end = parseInt(endNum.value, 10);
@@ -542,6 +530,7 @@
 
       const totalExpected = end - start + 1;
 
+      // Unreasonable range protection
       if (totalExpected > 500000) {
         if (!confirm(`Selected range has ${totalExpected.toLocaleString()} numbers. Do you want to continue?`)) {
           return;
@@ -551,8 +540,10 @@
       missingList = [];
       const MAX_SAFE_MISSING = 150000;
 
+      // Check each number in range strictly against yellow highlights
       for (let i = start; i <= end; i++) {
         if (!yellowNumbers.has(i)) {
+          // Check if this number exists in sheet but wasn't yellow
           const status = nonYellowNumbers.has(i) ? "Not Yellow (Present in Sheet)" : "Missing (Not in Sheet)";
           missingList.push({ number: i, reason: status });
 
@@ -577,11 +568,11 @@
         statusAlert.innerHTML = `🎉 <strong>Audit Passed:</strong> 100% complete! All numbers between ${start} and ${end} are highlighted in yellow.`;
         tableContainer.classList.add('hidden');
         downloadReportBtn.classList.remove('hidden');
-        downloadPdfBtn.classList.remove('hidden');
       } else {
         statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-rose-950/50 border-rose-800 text-rose-300';
         statusAlert.innerHTML = `⚠️ <strong>Discrepancies Found:</strong> Detected <strong>${missingCount.toLocaleString()}</strong> numbers not highlighted in yellow within range.`;
 
+        // Render first 500 rows to ensure UI stays ultra-fast
         missingTableBody.innerHTML = '';
         const displayLimit = Math.min(missingList.length, 500);
         let rowsHtml = '';
@@ -608,14 +599,13 @@
         missingTableBody.innerHTML = rowsHtml;
 
         if (missingList.length > 500) {
-          tableCountBadge.textContent = `Showing 500 of ${missingList.length.toLocaleString()} (Download report for all)`;
+          tableCountBadge.textContent = `Showing 500 of ${missingList.length.toLocaleString()} (Download CSV for all)`;
         } else {
           tableCountBadge.textContent = `${missingCount.toLocaleString()} items`;
         }
 
         tableContainer.classList.remove('hidden');
         downloadReportBtn.classList.remove('hidden');
-        downloadPdfBtn.classList.remove('hidden');
       }
 
       resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -628,117 +618,7 @@
       mRate.textContent = `${rate}%`;
     }
 
-    // PDF Report Generator
-    downloadPdfBtn.addEventListener('click', () => {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-      const start = startNum.value;
-      const end = endNum.value;
-      const total = mTotal.textContent;
-      const found = mFound.textContent;
-      const missingCount = mMissing.textContent;
-      const rate = mRate.textContent;
-      const sheetName = sheetSelect.value;
-      const dateStr = new Date().toLocaleString();
-
-      // Header Banner
-      doc.setFillColor(15, 23, 42); // slate-900
-      doc.rect(0, 0, 210, 32, 'F');
-
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text("INVOICE AUDIT & GAP REPORT", 14, 16);
-
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(148, 163, 184); // slate-400
-      doc.text(`Generated: ${dateStr} | Worksheet: ${sheetName}`, 14, 24);
-
-      // Section: Summary Metrics Table
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text("1. Executive Summary", 14, 42);
-
-      const summaryData = [
-        ["Evaluated Range", `${start} to ${end}`],
-        ["Total Numbers in Range", total],
-        ["Yellow Invoices Present", found],
-        ["Missing / Unhighlighted Count", missingCount],
-        ["Yellow Match Compliance", `${rate}%`],
-        ["Non-Yellow Cells in Sheet", nonYellowCellsCount.toLocaleString()]
-      ];
-
-      doc.autoTable({
-        startY: 46,
-        head: [['Metric Parameter', 'Audit Value']],
-        body: summaryData,
-        theme: 'striped',
-        headStyles: { fillStyle: 'F', fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-        styles: { fontSize: 9, cellPadding: 2.8 },
-        columnStyles: { 0: { cellWidth: 80, fontStyle: 'bold' }, 1: { cellWidth: 100 } }
-      });
-
-      // Section: Missing / Not Yellow Table
-      const finalY = doc.lastAutoTable.finalY + 10;
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text("2. Missing & Unhighlighted Invoices", 14, finalY);
-
-      let tableRows = [];
-      if (missingList.length === 0) {
-        tableRows.push(["1", "None", "All Present in Yellow Highlights"]);
-      } else {
-        // PDF table safety limit (up to 3,000 rows to ensure fast rendering)
-        const pdfLimit = Math.min(missingList.length, 3000);
-        for (let i = 0; i < pdfLimit; i++) {
-          tableRows.push([
-            (i + 1).toString(),
-            missingList[i].number.toString(),
-            missingList[i].reason
-          ]);
-        }
-      }
-
-      doc.autoTable({
-        startY: finalY + 4,
-        head: [['#', 'Invoice Number', 'Audit Findings']],
-        body: tableRows,
-        theme: 'grid',
-        headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
-        styles: { fontSize: 8, cellPadding: 2.5 },
-        columnStyles: {
-          0: { cellWidth: 18, halign: 'center' },
-          1: { cellWidth: 55, fontStyle: 'bold' },
-          2: { cellWidth: 110 }
-        },
-        didParseCell: function(data) {
-          if (data.section === 'body' && data.column.index === 2) {
-            if (data.cell.raw && data.cell.raw.includes("Not Yellow")) {
-              data.cell.styles.textColor = [180, 83, 9]; // Amber
-              data.cell.styles.fontStyle = 'bold';
-            } else if (data.cell.raw && data.cell.raw.includes("Missing")) {
-              data.cell.styles.textColor = [225, 29, 72]; // Rose/Red
-              data.cell.styles.fontStyle = 'bold';
-            }
-          }
-        },
-        didDrawPage: function(data) {
-          // Footer
-          const pageCount = doc.internal.getNumberOfPages();
-          doc.setFontSize(8);
-          doc.setTextColor(148, 163, 184);
-          doc.text(`Developed by Sadeesha | Page ${data.pageNumber} of ${pageCount}`, 14, 290);
-        }
-      });
-
-      doc.save(`Invoice_Audit_Report_${start}_to_${end}.pdf`);
-    });
-
-    // CSV Generator
+    // Report CSV Generator
     downloadReportBtn.addEventListener('click', () => {
       const start = startNum.value;
       const end = endNum.value;
