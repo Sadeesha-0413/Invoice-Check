@@ -197,10 +197,10 @@
 
         <!-- Quick Range Buttons -->
         <div class="flex flex-wrap gap-2 pt-1">
-          <button type="button" id="btnAutoRange" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 transition flex items-center gap-1.5">
+          <button type="button" id="btnAutoRange" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 transition flex items-center gap-1.5 cursor-pointer">
             <span>🎯</span> Auto Range (Min - Max of Yellow)
           </button>
-          <button type="button" id="btnClearRange" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 transition flex items-center gap-1.5">
+          <button type="button" id="btnClearRange" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 transition flex items-center gap-1.5 cursor-pointer">
             <span>🔄</span> Clear Inputs
           </button>
         </div>
@@ -208,8 +208,9 @@
         <!-- Action Button -->
         <div class="pt-2">
           <button 
+            type="button"
             id="findBtn" 
-            class="w-full py-3.5 px-6 rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg shadow-indigo-950/50 transition duration-150 transform active:scale-[0.99] flex items-center justify-center gap-2"
+            class="w-full py-3.5 px-6 rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg shadow-indigo-950/50 transition duration-150 transform active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
           >
             <span>🔍</span> Audit Range & Check Missing
           </button>
@@ -229,8 +230,9 @@
           <!-- PDF Download Button Only -->
           <div>
             <button 
+              type="button"
               id="downloadPdfBtn" 
-              class="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-rose-950/50 transition flex items-center justify-center gap-2"
+              class="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-rose-950/50 transition flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>📄</span> Download Report (PDF)
             </button>
@@ -292,6 +294,7 @@
   </div>
 
   <script>
+    // Global State
     let currentWorkbook = null;
     let yellowNumbers = new Set();
     let nonYellowNumbers = new Set();
@@ -358,7 +361,8 @@
       appErrorBanner.classList.add('hidden');
     }
 
-    dropZone.addEventListener('click', () => {
+    // Dropzone Click
+    dropZone.addEventListener('click', (e) => {
       clearError();
       fileInput.click();
     });
@@ -437,19 +441,19 @@
       processingSection.classList.remove('hidden');
 
       updateProgress(15, "Reading file buffer...", "Loading file into memory");
-      await new Promise(r => setTimeout(r, 120));
+      await new Promise(r => setTimeout(r, 100));
 
       try {
         const arrayBuffer = await file.arrayBuffer();
         updateProgress(45, "Parsing Excel Structure...", "Unpacking worksheets and styles");
-        await new Promise(r => setTimeout(r, 150));
+        await new Promise(r => setTimeout(r, 100));
 
         const workbook = new ExcelJS.Workbook();
         await workbook.xlsx.load(arrayBuffer);
         currentWorkbook = workbook;
 
         updateProgress(80, "Extracting Sheets...", "Populating sheet list");
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 80));
 
         sheetSelect.innerHTML = '';
         workbook.worksheets.forEach((ws) => {
@@ -470,7 +474,7 @@
       } catch (err) {
         console.error(err);
         processingSection.classList.add('hidden');
-        showError("File Reading Failed", "Unable to read this file. It may be corrupted, password-protected, or in an unsupported structure.");
+        showError("File Reading Failed", "Unable to read this file. It may be corrupted, password-protected, or in an unsupported format.");
       }
     }
 
@@ -482,7 +486,7 @@
       const ws = currentWorkbook.getWorksheet(sheetSelect.value);
       await processWorksheet(ws);
       updateProgress(100, "Complete", "Worksheet loaded");
-      setTimeout(() => processingSection.classList.add('hidden'), 300);
+      setTimeout(() => processingSection.classList.add('hidden'), 250);
     });
 
     function isYellow(fill) {
@@ -508,11 +512,14 @@
     }
 
     function extractInvoiceNum(val) {
-      if (typeof val === 'number') return BigInt(Math.floor(val));
+      if (typeof val === 'number') {
+        const floored = Math.floor(val);
+        return isNaN(floored) ? null : String(floored);
+      }
       if (typeof val === 'string') {
         const matches = val.match(/\d+/g);
         if (matches && matches.length > 0) {
-          return BigInt(matches[matches.length - 1]);
+          return matches[matches.length - 1]; // Return as string
         }
       }
       return null;
@@ -533,16 +540,16 @@
               val = val.result || val.text || '';
             }
 
-            const num = extractInvoiceNum(val);
+            const numStr = extractInvoiceNum(val);
 
             if (isYellow(cell.fill)) {
-              if (num !== null) {
-                yellowNumbers.add(num.toString());
+              if (numStr !== null) {
+                yellowNumbers.add(numStr);
               }
             } else {
               nonYellowCellsCount++;
-              if (num !== null) {
-                nonYellowNumbers.add(num.toString());
+              if (numStr !== null) {
+                nonYellowNumbers.add(numStr);
               }
             }
           }
@@ -564,25 +571,33 @@
         return;
       }
 
-      const arr = Array.from(yellowNumbers).map(n => BigInt(n));
-      detectedMin = arr.reduce((m, e) => e < m ? e : m, arr[0]);
-      detectedMax = arr.reduce((m, e) => e > m ? e : m, arr[0]);
+      // Convert Set to BigInt safely
+      const arr = [];
+      yellowNumbers.forEach(s => {
+        try { arr.push(BigInt(s)); } catch(e){}
+      });
 
-      detectedStatusMsg.innerHTML = `
-        Discovered <strong>${yellowNumbers.size.toLocaleString()}</strong> yellow-highlighted invoices in <strong>"${sheet.name}"</strong>.<br>
-        Also detected <strong>${nonYellowCellsCount.toLocaleString()}</strong> non-yellow cells.<br>
-        Detected Yellow Range &bull; Min: <span class="font-mono font-bold text-white">${detectedMin.toLocaleString()}</span> &bull; 
-        Max: <span class="font-mono font-bold text-white">${detectedMax.toLocaleString()}</span>
-      `;
+      if (arr.length > 0) {
+        detectedMin = arr.reduce((m, e) => e < m ? e : m, arr[0]);
+        detectedMax = arr.reduce((m, e) => e > m ? e : m, arr[0]);
 
-      startNum.value = detectedMin.toString();
-      endNum.value = detectedMax.toString();
+        detectedStatusMsg.innerHTML = `
+          Discovered <strong>${yellowNumbers.size.toLocaleString()}</strong> yellow-highlighted invoices in <strong>"${sheet.name}"</strong>.<br>
+          Also detected <strong>${nonYellowCellsCount.toLocaleString()}</strong> non-yellow cells.<br>
+          Detected Yellow Range &bull; Min: <span class="font-mono font-bold text-white">${detectedMin.toLocaleString()}</span> &bull; 
+          Max: <span class="font-mono font-bold text-white">${detectedMax.toLocaleString()}</span>
+        `;
+
+        startNum.value = detectedMin.toString();
+        endNum.value = detectedMax.toString();
+      }
 
       rangeSection.classList.remove('hidden');
       resultsSection.classList.add('hidden');
     }
 
-    btnAutoRange.addEventListener('click', () => {
+    btnAutoRange.addEventListener('click', (e) => {
+      e.preventDefault();
       clearError();
       if (detectedMin !== null && detectedMax !== null) {
         startNum.value = detectedMin.toString();
@@ -590,133 +605,154 @@
       }
     });
 
-    btnClearRange.addEventListener('click', () => {
+    btnClearRange.addEventListener('click', (e) => {
+      e.preventDefault();
       clearError();
       startNum.value = '';
       endNum.value = '';
     });
 
-    // High-Scale BigInt Interval Gap Checking Logic
-    findBtn.addEventListener('click', () => {
+    // Main Find / Audit Button Click
+    findBtn.addEventListener('click', (e) => {
+      e.preventDefault();
       clearError();
 
-      let start, end;
       try {
-        const rawStart = startNum.value.trim().replace(/,/g, '');
-        const rawEnd = endNum.value.trim().replace(/,/g, '');
+        const rawStart = (startNum.value || '').trim().replace(/,/g, '');
+        const rawEnd = (endNum.value || '').trim().replace(/,/g, '');
 
         if (!rawStart || !rawEnd) {
           showError("Input Required", "Please enter both Start and End invoice numbers.");
           return;
         }
 
-        start = BigInt(rawStart);
-        end = BigInt(rawEnd);
-      } catch (e) {
-        showError("Invalid Number Format", "Please provide valid whole numbers. Decimal points and symbols are not allowed.");
-        return;
-      }
+        let start, end;
+        try {
+          start = BigInt(rawStart);
+          end = BigInt(rawEnd);
+        } catch (err) {
+          showError("Invalid Number Format", "Please provide whole numbers only without decimals or text.");
+          return;
+        }
 
-      if (start < 0n || end < 0n) {
-        showError("Negative Value Error", "Invoice numbers must be positive integers.");
-        return;
-      }
+        if (start < 0n || end < 0n) {
+          showError("Negative Value Error", "Invoice numbers must be positive numbers.");
+          return;
+        }
 
-      if (start > end) {
-        showError("Invalid Range Sequence", "Start Number cannot be greater than End Number. Please adjust the range.");
-        return;
-      }
+        if (start > end) {
+          showError("Invalid Range Sequence", "Start Number cannot be greater than End Number. Please check your range values.");
+          return;
+        }
 
-      // Filter and sort only yellow invoices falling in the user's defined range
-      const sortedYellow = Array.from(yellowNumbers)
-        .map(n => BigInt(n))
-        .filter(n => n >= start && n <= end)
-        .sort((a, b) => (a < b ? -1n : a > b ? 1n : 0n));
+        // Parse and sort yellow numbers
+        const sortedYellow = [];
+        yellowNumbers.forEach(s => {
+          try {
+            const b = BigInt(s);
+            if (b >= start && b <= end) sortedYellow.push(b);
+          } catch(err){}
+        });
 
-      missingGaps = [];
-      let current = start;
-      let totalMissingCount = 0n;
+        sortedYellow.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 
-      for (let i = 0; i < sortedYellow.length; i++) {
-        const num = sortedYellow[i];
-        if (num > current) {
+        // Deduplicate sorted array
+        const uniqueYellow = [];
+        for (let i = 0; i < sortedYellow.length; i++) {
+          if (i === 0 || sortedYellow[i] !== sortedYellow[i - 1]) {
+            uniqueYellow.push(sortedYellow[i]);
+          }
+        }
+
+        missingGaps = [];
+        let current = start;
+        let totalMissingCount = 0n;
+
+        for (let i = 0; i < uniqueYellow.length; i++) {
+          const num = uniqueYellow[i];
+          if (num > current) {
+            const gapStart = current;
+            const gapEnd = num - 1n;
+            const count = gapEnd - gapStart + 1n;
+            totalMissingCount += count;
+            missingGaps.push({ from: gapStart, to: gapEnd, count: count });
+          }
+          current = num + 1n;
+        }
+
+        if (current <= end) {
           const gapStart = current;
-          const gapEnd = num - 1n;
+          const gapEnd = end;
           const count = gapEnd - gapStart + 1n;
           totalMissingCount += count;
           missingGaps.push({ from: gapStart, to: gapEnd, count: count });
         }
-        current = num + 1n;
-      }
 
-      if (current <= end) {
-        const gapStart = current;
-        const gapEnd = end;
-        const count = gapEnd - gapStart + 1n;
-        totalMissingCount += count;
-        missingGaps.push({ from: gapStart, to: gapEnd, count: count });
-      }
+        const totalExpected = end - start + 1n;
+        const foundCount = BigInt(uniqueYellow.length);
+        const completionRate = totalExpected > 0n 
+          ? ((Number(foundCount) / Number(totalExpected)) * 100).toFixed(4) 
+          : 0;
 
-      const totalExpected = end - start + 1n;
-      const foundCount = BigInt(sortedYellow.length);
-      const completionRate = totalExpected > 0n 
-        ? ((Number(foundCount) / Number(totalExpected)) * 100).toFixed(4) 
-        : 0;
+        resetMetrics(
+          totalExpected.toLocaleString(), 
+          foundCount.toLocaleString(), 
+          totalMissingCount.toLocaleString(), 
+          completionRate
+        );
 
-      resetMetrics(
-        totalExpected.toLocaleString(), 
-        foundCount.toLocaleString(), 
-        totalMissingCount.toLocaleString(), 
-        completionRate
-      );
+        reportSummarySubtitle.textContent = `Range: ${start.toLocaleString()} → ${end.toLocaleString()}`;
+        resultsSection.classList.remove('hidden');
 
-      reportSummarySubtitle.textContent = `Range: ${start.toLocaleString()} → ${end.toLocaleString()}`;
-      resultsSection.classList.remove('hidden');
-
-      if (missingGaps.length === 0) {
-        statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-emerald-950/60 border-emerald-800 text-emerald-300';
-        statusAlert.innerHTML = `🎉 <strong>Audit Passed:</strong> 100% complete! All numbers between ${start.toLocaleString()} and ${end.toLocaleString()} are highlighted in yellow.`;
-        tableContainer.classList.add('hidden');
-        downloadPdfBtn.classList.remove('hidden');
-      } else {
-        statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-rose-950/50 border-rose-800 text-rose-300';
-        statusAlert.innerHTML = `⚠️️ <strong>Discrepancies Found:</strong> A total of <strong>${totalMissingCount.toLocaleString()}</strong> invoice numbers are missing from yellow highlights.`;
-
-        missingTableBody.innerHTML = '';
-        const displayLimit = Math.min(missingGaps.length, 500);
-        let rowsHtml = '';
-        
-        for (let index = 0; index < displayLimit; index++) {
-          const gap = missingGaps[index];
-          const spanText = gap.from === gap.to 
-            ? `${gap.from.toLocaleString()}` 
-            : `${gap.from.toLocaleString()} — ${gap.to.toLocaleString()}`;
-
-          rowsHtml += `
-            <tr class="hover:bg-slate-900/60 transition">
-              <td class="py-2.5 px-4 text-slate-500">${index + 1}</td>
-              <td class="py-2.5 px-4 font-bold text-slate-200">${spanText}</td>
-              <td class="py-2.5 px-4 text-right">
-                <span class="inline-block px-2 py-0.5 text-[10px] rounded-md font-semibold border bg-rose-950/80 text-rose-400 border-rose-800">
-                  ${gap.count.toLocaleString()} missing
-                </span>
-              </td>
-            </tr>
-          `;
-        }
-        missingTableBody.innerHTML = rowsHtml;
-
-        if (missingGaps.length > 500) {
-          tableCountBadge.textContent = `Showing 500 of ${missingGaps.length.toLocaleString()} gap intervals`;
+        if (missingGaps.length === 0) {
+          statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-emerald-950/60 border-emerald-800 text-emerald-300';
+          statusAlert.innerHTML = `🎉 <strong>Audit Passed:</strong> 100% complete! All numbers between ${start.toLocaleString()} and ${end.toLocaleString()} are highlighted in yellow.`;
+          tableContainer.classList.add('hidden');
+          downloadPdfBtn.classList.remove('hidden');
         } else {
-          tableCountBadge.textContent = `${missingGaps.length.toLocaleString()} gap intervals`;
+          statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-rose-950/50 border-rose-800 text-rose-300';
+          statusAlert.innerHTML = `⚠️ <strong>Discrepancies Found:</strong> A total of <strong>${totalMissingCount.toLocaleString()}</strong> invoice numbers are missing from yellow highlights.`;
+
+          missingTableBody.innerHTML = '';
+          const displayLimit = Math.min(missingGaps.length, 500);
+          let rowsHtml = '';
+          
+          for (let index = 0; index < displayLimit; index++) {
+            const gap = missingGaps[index];
+            const spanText = gap.from === gap.to 
+              ? `${gap.from.toLocaleString()}` 
+              : `${gap.from.toLocaleString()} — ${gap.to.toLocaleString()}`;
+
+            rowsHtml += `
+              <tr class="hover:bg-slate-900/60 transition">
+                <td class="py-2.5 px-4 text-slate-500">${index + 1}</td>
+                <td class="py-2.5 px-4 font-bold text-slate-200">${spanText}</td>
+                <td class="py-2.5 px-4 text-right">
+                  <span class="inline-block px-2 py-0.5 text-[10px] rounded-md font-semibold border bg-rose-950/80 text-rose-400 border-rose-800">
+                    ${gap.count.toLocaleString()} missing
+                  </span>
+                </td>
+              </tr>
+            `;
+          }
+          missingTableBody.innerHTML = rowsHtml;
+
+          if (missingGaps.length > 500) {
+            tableCountBadge.textContent = `Showing 500 of ${missingGaps.length.toLocaleString()} gap intervals`;
+          } else {
+            tableCountBadge.textContent = `${missingGaps.length.toLocaleString()} gap intervals`;
+          }
+
+          tableContainer.classList.remove('hidden');
+          downloadPdfBtn.classList.remove('hidden');
         }
 
-        tableContainer.classList.remove('hidden');
-        downloadPdfBtn.classList.remove('hidden');
-      }
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
-      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (err) {
+        console.error("Audit Execution Error:", err);
+        showError("Execution Error", "An error occurred while calculating the invoice ranges. Please check console or inputs.");
+      }
     });
 
     function resetMetrics(total, found, missing, rate) {
@@ -726,9 +762,16 @@
       mRate.textContent = `${rate}%`;
     }
 
-    // PDF Report Generator (Formatted with High-Precision BigInt Gap Ranges)
-    downloadPdfBtn.addEventListener('click', () => {
+    // PDF Report Generator
+    downloadPdfBtn.addEventListener('click', (e) => {
+      e.preventDefault();
       clearError();
+
+      if (!window.jspdf) {
+        showError("Library Error", "PDF library not loaded. Please ensure you are connected to the internet.");
+        return;
+      }
+
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
@@ -738,7 +781,7 @@
       const found = mFound.textContent;
       const missingCount = mMissing.textContent;
       const rate = mRate.textContent;
-      const sheetName = sheetSelect.value;
+      const sheetName = sheetSelect.value || "Sheet1";
       const dateStr = new Date().toLocaleString();
 
       try {
