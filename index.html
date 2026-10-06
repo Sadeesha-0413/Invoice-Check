@@ -1,95 +1,341 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Missing Invoice Finder</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- ExcelJS for reading Excel cell styles & fill colors -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
-</head>
-<body class="bg-slate-50 text-slate-800 min-h-screen py-10 px-4">
-  <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-    <div class="flex items-center space-x-3 mb-2">
-      <span class="text-3xl">📄</span>
-      <h1 class="text-2xl font-bold text-slate-900">Missing Invoice Finder</h1>
-    </div>
-    <p class="text-slate-500 mb-6 text-sm">
-      Upload your Excel file (<code class="bg-slate-100 px-1 rounded">.xlsx</code>). The app detects yellow-highlighted invoice numbers and finds any gaps in your chosen range.
-    </p>
 
-    <!-- File Upload -->
-    <div class="mb-6">
-      <label class="block text-sm font-semibold text-slate-700 mb-2">Upload Excel File</label>
-      <input 
-        type="file" 
-        id="excelFile" 
-        accept=".xlsx"
-        class="block w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-300 rounded-xl"
-      />
-    </div>
-
-    <!-- Sheet Selection -->
-    <div id="sheetSelectionDiv" class="mb-6 hidden">
-      <label class="block text-sm font-semibold text-slate-700 mb-2">Select Sheet</label>
-      <select id="sheetSelect" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
-    </div>
-
-    <!-- Range Inputs -->
-    <div id="rangeDiv" class="hidden">
-      <div id="detectedStatus" class="p-3 mb-6 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-sm"></div>
-
-      <div class="grid grid-cols-2 gap-4 mb-6">
-        <div>
-          <label class="block text-sm font-semibold text-slate-700 mb-1">Start Invoice Number</label>
-          <input type="number" id="startNum" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <div>
-          <label class="block text-sm font-semibold text-slate-700 mb-1">End Invoice Number</label>
-          <input type="number" id="endNum" class="w-full border border-slate-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-      </div>
-
-      <button id="findBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition duration-150">
-        🔍 Find Missing Invoices
-      </button>
-    </div>
-
-    <!-- Results Section -->
-    <div id="resultsDiv" class="mt-8 hidden">
-      <hr class="border-slate-200 mb-6" />
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-bold text-slate-900" id="resultHeading">Results</h2>
-        <button id="downloadBtn" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition">
-          📥 Download CSV
-        </button>
-      </div>
-
-      <div id="resultMessage" class="mb-4 text-sm font-medium"></div>
-
-      <div class="max-h-60 overflow-y-auto border border-slate-200 rounded-xl hidden" id="tableContainer">
-        <table class="w-full text-left text-sm">
-          <thead class="bg-slate-100 text-slate-700 sticky top-0">
-            <tr>
-              <th class="py-2.5 px-4 font-semibold">Missing Invoice Number</th>
-            </tr>
-          </thead>
-          <tbody id="missingTableBody" class="divide-y divide-slate-100 bg-white"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <script>
     let currentWorkbook = null;
     let yellowNumbers = new Set();
     let missingList = [];
+    let detectedMin = null;
+    let detectedMax = null;
 
+    // Elements
+    const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('excelFile');
-    const sheetSelectionDiv = document.getElementById('sheetSelectionDiv');
+    const selectedFileName = document.getElementById('selectedFileName');
+    
+    const processingSection = document.getElementById('processingSection');
+    const processingStatusText = document.getElementById('processingStatusText');
+    const progressBar = document.getElementById('progressBar');
+    const progressBarPercent = document.getElementById('progressBarPercent');
+    const processingDetailText = document.getElementById('processingDetailText');
+
+    const sheetSection = document.getElementById('sheetSection');
     const sheetSelect = document.getElementById('sheetSelect');
-    const rangeDiv = document.getElementById('rangeDiv');
-    const detectedStatus = document.getElementById('detectedStatus');
-    const startNumInput = document.getElementById('startNum');
-    const endNumInput = document.getElementById('endNum');
-    const findBtn = document.getElementById('
+
+    const rangeSection = document.getElementById('rangeSection');
+    const detectedStatusMsg = document.getElementById('detectedStatusMsg');
+    const startNum = document.getElementById('startNum');
+    const endNum = document.getElementById('endNum');
+    const btnAutoRange = document.getElementById('btnAutoRange');
+    const btnClearRange = document.getElementById('btnClearRange');
+    const findBtn = document.getElementById('findBtn');
+
+    const resultsSection = document.getElementById('resultsSection');
+    const reportSummarySubtitle = document.getElementById('reportSummarySubtitle');
+    const downloadReportBtn = document.getElementById('downloadReportBtn');
+    const statusAlert = document.getElementById('statusAlert');
+    const tableContainer = document.getElementById('tableContainer');
+    const missingTableBody = document.getElementById('missingTableBody');
+    const tableCountBadge = document.getElementById('tableCountBadge');
+
+    const mTotal = document.getElementById('mTotal');
+    const mFound = document.getElementById('mFound');
+    const mMissing = document.getElementById('mMissing');
+    const mRate = document.getElementById('mRate');
+
+    // Drag and Drop styling
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-indigo-500', 'bg-indigo-950/20');
+      });
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-indigo-500', 'bg-indigo-950/20');
+      });
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      selectedFileName.textContent = `Selected: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      await handleFile(file);
+    });
+
+    function updateProgress(percent, status, detail) {
+      progressBar.style.width = `${percent}%`;
+      progressBarPercent.textContent = `${percent}%`;
+      if (status) {
+        processingStatusText.innerHTML = `
+          <svg class="animate-spin h-3.5 w-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          ${status}
+        `;
+      }
+      if (detail) processingDetailText.textContent = detail;
+    }
+
+    async function handleFile(file) {
+      // Reset UI
+      resultsSection.classList.add('hidden');
+      rangeSection.classList.add('hidden');
+      sheetSection.classList.add('hidden');
+      processingSection.classList.remove('hidden');
+
+      updateProgress(15, "Reading file buffer...", "Loading raw binary data into memory");
+      await new Promise(r => setTimeout(r, 120));
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        updateProgress(45, "Parsing Excel Structure...", "Unpacking worksheets and styles");
+        await new Promise(r => setTimeout(r, 150));
+
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+        currentWorkbook = workbook;
+
+        updateProgress(80, "Extracting Sheets...", "Populating sheet list");
+        await new Promise(r => setTimeout(r, 100));
+
+        sheetSelect.innerHTML = '';
+        workbook.worksheets.forEach((ws) => {
+          const opt = document.createElement('option');
+          opt.value = ws.name;
+          opt.textContent = ws.name;
+          sheetSelect.appendChild(opt);
+        });
+
+        sheetSection.classList.remove('hidden');
+        await processWorksheet(workbook.worksheets[0]);
+
+        updateProgress(100, "Processing Complete", "Ready for range setup");
+        setTimeout(() => {
+          processingSection.classList.add('hidden');
+        }, 400);
+
+      } catch (err) {
+        console.error(err);
+        alert("Failed to read Excel file. Please ensure it is a valid .xlsx file.");
+        processingSection.classList.add('hidden');
+      }
+    }
+
+    sheetSelect.addEventListener('change', async () => {
+      if (!currentWorkbook) return;
+      processingSection.classList.remove('hidden');
+      updateProgress(40, "Switching Worksheet...", `Reading ${sheetSelect.value}`);
+      const ws = currentWorkbook.getWorksheet(sheetSelect.value);
+      await processWorksheet(ws);
+      updateProgress(100, "Complete", "Worksheet loaded");
+      setTimeout(() => processingSection.classList.add('hidden'), 300);
+    });
+
+    function isYellow(fill) {
+      if (!fill || fill.type !== 'pattern') return false;
+      const yellowCodes = [
+        'FFFF00', 'FFFFFF00', 'FFF2CC', 'FFFF99', 'FFFFCC',
+        'FFE599', 'FFE699', 'FFF176', 'FFEE58', 'FEF08A', 'FDE047'
+      ];
+
+      const matchCode = (colorObj) => {
+        if (!colorObj) return false;
+        if (colorObj.argb) {
+          const argb = colorObj.argb.toUpperCase();
+          return yellowCodes.some(c => argb.includes(c));
+        }
+        if (colorObj.theme !== undefined) {
+          return [3, 4, 5].includes(colorObj.theme);
+        }
+        return false;
+      };
+
+      return matchCode(fill.fgColor) || matchCode(fill.bgColor);
+    }
+
+    function extractInvoiceNum(val) {
+      if (typeof val === 'number') return Math.floor(val);
+      if (typeof val === 'string') {
+        const matches = val.match(/\d+/g);
+        if (matches && matches.length > 0) {
+          return parseInt(matches[matches.length - 1], 10);
+        }
+      }
+      return null;
+    }
+
+    async function processWorksheet(sheet) {
+      yellowNumbers.clear();
+      let totalCells = 0;
+
+      sheet.eachRow((row) => {
+        row.eachCell((cell) => {
+          totalCells++;
+          if (cell.value !== null && cell.value !== undefined) {
+            let val = cell.value;
+            if (typeof val === 'object') {
+              val = val.result || val.text || '';
+            }
+            if (isYellow(cell.fill)) {
+              const num = extractInvoiceNum(val);
+              if (num !== null) {
+                yellowNumbers.add(num);
+              }
+            }
+          }
+        });
+      });
+
+      if (yellowNumbers.size === 0) {
+        rangeSection.classList.add('hidden');
+        resultsSection.classList.remove('hidden');
+        statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-amber-950/50 border-amber-800 text-amber-300';
+        statusAlert.innerHTML = `⚠️ No yellow-highlighted cells containing invoice numbers were found in <strong>"${sheet.name}"</strong>.`;
+        downloadReportBtn.classList.add('hidden');
+        tableContainer.classList.add('hidden');
+        resetMetrics(0, 0, 0, 0);
+        return;
+      }
+
+      const arr = Array.from(yellowNumbers);
+      detectedMin = Math.min(...arr);
+      detectedMax = Math.max(...arr);
+
+      detectedStatusMsg.innerHTML = `
+        Discovered <strong>${yellowNumbers.size}</strong> yellow-highlighted invoices in <strong>"${sheet.name}"</strong>.<br>
+        Detected Minimum: <span class="font-mono font-bold text-white">${detectedMin}</span> &bull; 
+        Maximum: <span class="font-mono font-bold text-white">${detectedMax}</span>
+      `;
+
+      startNum.value = detectedMin;
+      endNum.value = detectedMax;
+
+      rangeSection.classList.remove('hidden');
+      resultsSection.classList.add('hidden');
+    }
+
+    btnAutoRange.addEventListener('click', () => {
+      if (detectedMin !== null && detectedMax !== null) {
+        startNum.value = detectedMin;
+        endNum.value = detectedMax;
+      }
+    });
+
+    btnClearRange.addEventListener('click', () => {
+      startNum.value = '';
+      endNum.value = '';
+    });
+
+    findBtn.addEventListener('click', () => {
+      const start = parseInt(startNum.value, 10);
+      const end = parseInt(endNum.value, 10);
+
+      if (isNaN(start) || isNaN(end)) {
+        alert('Please enter valid numeric Start and End numbers.');
+        return;
+      }
+
+      if (start > end) {
+        alert('Start Number must be less than or equal to End Number.');
+        return;
+      }
+
+      const totalExpected = end - start + 1;
+      missingList = [];
+
+      for (let i = start; i <= end; i++) {
+        if (!yellowNumbers.has(i)) {
+          missingList.push(i);
+        }
+      }
+
+      const missingCount = missingList.length;
+      const foundCount = totalExpected - missingCount;
+      const completionRate = ((foundCount / totalExpected) * 100).toFixed(1);
+
+      // Update metrics
+      resetMetrics(totalExpected, foundCount, missingCount, completionRate);
+
+      reportSummarySubtitle.textContent = `Range: ${start} → ${end} (${totalExpected} invoices checked)`;
+      resultsSection.classList.remove('hidden');
+
+      if (missingCount === 0) {
+        statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-emerald-950/60 border-emerald-800 text-emerald-300';
+        statusAlert.innerHTML = `🎉 <strong>Audit Passed:</strong> 100% complete! No missing invoices found between ${start} and ${end}.`;
+        tableContainer.classList.add('hidden');
+        downloadReportBtn.classList.remove('hidden');
+      } else {
+        statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-rose-950/50 border-rose-800 text-rose-300';
+        statusAlert.innerHTML = `⚠️ <strong>Discrepancies Found:</strong> Detected <strong>${missingCount}</strong> missing invoice numbers in the selected range.`;
+
+        // Render table
+        missingTableBody.innerHTML = '';
+        missingList.forEach((num, index) => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-900/60 transition';
+          tr.innerHTML = `
+            <td class="py-2.5 px-4 text-slate-500">${index + 1}</td>
+            <td class="py-2.5 px-4 font-bold text-slate-200">${num}</td>
+            <td class="py-2.5 px-4 text-right">
+              <span class="inline-block px-2 py-0.5 text-[10px] rounded-md font-semibold bg-rose-950/80 text-rose-400 border border-rose-800">
+                Missing
+              </span>
+            </td>
+          `;
+          missingTableBody.appendChild(tr);
+        });
+
+        tableCountBadge.textContent = `${missingCount} missing`;
+        tableContainer.classList.remove('hidden');
+        downloadReportBtn.classList.remove('hidden');
+      }
+
+      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    function resetMetrics(total, found, missing, rate) {
+      mTotal.textContent = total;
+      mFound.textContent = found;
+      mMissing.textContent = missing;
+      mRate.textContent = `${rate}%`;
+    }
+
+    // Final Report CSV Generator
+    downloadReportBtn.addEventListener('click', () => {
+      const start = startNum.value;
+      const end = endNum.value;
+      const total = mTotal.textContent;
+      const found = mFound.textContent;
+      const missingCount = mMissing.textContent;
+      const rate = mRate.textContent;
+
+      let csv = `INVOICE AUDIT REPORT\n`;
+      csv += `Generated On,${new Date().toLocaleString()}\n`;
+      csv += `Range Evaluated,${start} to ${end}\n`;
+      csv += `Total Invoices,${total}\n`;
+      csv += `Yellow Invoices Found,${found}\n`;
+      csv += `Missing Count,${missingCount}\n`;
+      csv += `Completion Rate,${rate}\n\n`;
+      csv += `Index,Missing Invoice Number,Status\n`;
+
+      if (missingList.length === 0) {
+        csv += `1,None,All Present\n`;
+      } else {
+        missingList.forEach((num, idx) => {
+          csv += `${idx + 1},${num},Missing\n`;
+        });
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Invoice_Audit_Report_${start}_to_${end}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+  </script>
+</body>
+</html>
