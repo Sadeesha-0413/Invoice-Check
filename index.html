@@ -238,8 +238,13 @@
     </main>
 
     <!-- Footer -->
-    <footer class="mt-8 text-center text-xs text-slate-500">
-      Invoice Audit Web App &bull; Pure Client-Side Execution &bull; Zero Server Uploads
+    <footer class="mt-8 text-center space-y-1.5">
+      <p class="text-xs font-medium tracking-wide text-slate-400">
+        Developed by <span class="text-indigo-400 font-semibold tracking-normal">Sadeesha</span>
+      </p>
+      <p class="text-[11px] text-slate-600">
+        Invoice Audit Web App &bull; Pure Client-Side Execution &bull; Zero Server Uploads
+      </p>
     </footer>
   </div>
 
@@ -323,7 +328,6 @@
     }
 
     async function handleFile(file) {
-      // Reset UI
       resultsSection.classList.add('hidden');
       rangeSection.classList.add('hidden');
       sheetSection.classList.add('hidden');
@@ -499,7 +503,6 @@
       const foundCount = totalExpected - missingCount;
       const completionRate = ((foundCount / totalExpected) * 100).toFixed(1);
 
-      // Update metrics
       resetMetrics(totalExpected, foundCount, missingCount, completionRate);
 
       reportSummarySubtitle.textContent = `Range: ${start} → ${end} (${totalExpected} invoices checked)`;
@@ -514,7 +517,6 @@
         statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-rose-950/50 border-rose-800 text-rose-300';
         statusAlert.innerHTML = `⚠️ <strong>Discrepancies Found:</strong> Detected <strong>${missingCount}</strong> missing invoice numbers in the selected range.`;
 
-        // Render table
         missingTableBody.innerHTML = '';
         missingList.forEach((num, index) => {
           const tr = document.createElement('tr');
@@ -584,4 +586,3 @@
   </script>
 </body>
 </html>
-```[cite: 6]
