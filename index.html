@@ -25,7 +25,6 @@
   <!-- ExcelJS for reading styles & background colors -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
   <style>
-    /* Custom scrollbar for dark theme */
     ::-webkit-scrollbar {
       width: 6px;
       height: 6px;
@@ -53,7 +52,7 @@
         Invoice Audit & Missing Tracker
       </h1>
       <p class="text-slate-400 mt-2 text-sm max-w-md mx-auto">
-        Scan yellow-highlighted invoices, specify customized ranges, and generate detailed missing audit reports.
+        Scan yellow-highlighted invoices, view unhighlighted cell counts, and generate detailed missing audit reports.
       </p>
     </header>
 
@@ -122,11 +121,27 @@
           Step 3: Define Invoice Range
         </label>
 
-        <!-- Detection Summary Card -->
+        <!-- Detection Summary Card with Non-Yellow Count -->
         <div id="detectedStatusCard" class="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-800/60 flex items-start gap-3">
           <span class="text-xl">💡</span>
-          <div class="text-xs text-indigo-200 leading-relaxed" id="detectedStatusMsg">
+          <div class="text-xs text-indigo-200 leading-relaxed w-full" id="detectedStatusMsg">
             Scanning complete.
+          </div>
+        </div>
+
+        <!-- Sheet Cells Overview Badges -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <div class="bg-slate-950/60 border border-slate-800 p-3 rounded-xl">
+            <span class="text-[11px] text-slate-400 block mb-0.5">Total Filled Cells</span>
+            <span class="text-base font-bold font-mono text-slate-200" id="cardTotalCells">0</span>
+          </div>
+          <div class="bg-amber-950/20 border border-amber-900/40 p-3 rounded-xl">
+            <span class="text-[11px] text-amber-300 block mb-0.5">Yellow Invoices</span>
+            <span class="text-base font-bold font-mono text-amber-400" id="cardYellowCells">0</span>
+          </div>
+          <div class="bg-slate-950/60 border border-slate-800 p-3 rounded-xl col-span-2 sm:col-span-1">
+            <span class="text-[11px] text-slate-400 block mb-0.5">Non-Yellow Cells</span>
+            <span class="text-base font-bold font-mono text-slate-400" id="cardNonYellowCells">0</span>
           </div>
         </div>
 
@@ -154,7 +169,7 @@
         <!-- Quick Range Buttons -->
         <div class="flex flex-wrap gap-2 pt-1">
           <button type="button" id="btnAutoRange" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 transition flex items-center gap-1.5">
-            <span>🎯</span> Auto Range (Min - Max)
+            <span>🎯</span> Auto Range (Min - Max of Yellow)
           </button>
           <button type="button" id="btnClearRange" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-300 transition flex items-center gap-1.5">
             <span>🔄</span> Clear Inputs
@@ -167,7 +182,7 @@
             id="findBtn" 
             class="w-full py-3.5 px-6 rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white shadow-lg shadow-indigo-950/50 transition duration-150 transform active:scale-[0.99] flex items-center justify-center gap-2"
           >
-            <span>🔍</span> Process & Find Missing Invoices
+            <span>🔍</span> Process & Find Missing Invoices (Yellow Only)
           </button>
         </div>
       </section>
@@ -194,11 +209,11 @@
         <!-- Metric Badges -->
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center" id="metricsGrid">
           <div class="bg-slate-950/70 border border-slate-800 p-3 rounded-xl">
-            <span class="text-[11px] text-slate-400 block mb-0.5">Total in Range</span>
+            <span class="text-[11px] text-slate-400 block mb-0.5">Range Total</span>
             <span class="text-lg font-bold font-mono text-slate-200" id="mTotal">0</span>
           </div>
           <div class="bg-slate-950/70 border border-slate-800 p-3 rounded-xl">
-            <span class="text-[11px] text-slate-400 block mb-0.5">Yellow Found</span>
+            <span class="text-[11px] text-slate-400 block mb-0.5">Yellow Present</span>
             <span class="text-lg font-bold font-mono text-amber-400" id="mFound">0</span>
           </div>
           <div class="bg-slate-950/70 border border-slate-800 p-3 rounded-xl">
@@ -206,7 +221,7 @@
             <span class="text-lg font-bold font-mono text-rose-400" id="mMissing">0</span>
           </div>
           <div class="bg-slate-950/70 border border-slate-800 p-3 rounded-xl">
-            <span class="text-[11px] text-slate-400 block mb-0.5">Completion Rate</span>
+            <span class="text-[11px] text-slate-400 block mb-0.5">Yellow Match Rate</span>
             <span class="text-lg font-bold font-mono text-cyan-400" id="mRate">0%</span>
           </div>
         </div>
@@ -216,7 +231,7 @@
         <!-- Missing Table Container -->
         <div id="tableContainer" class="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950/50 hidden">
           <div class="px-4 py-2.5 bg-slate-800/60 border-b border-slate-800 flex justify-between items-center text-xs">
-            <span class="font-semibold text-slate-300">Missing Invoice Numbers List</span>
+            <span class="font-semibold text-slate-300">Missing Numbers (Not Highlighted in Yellow)</span>
             <span class="text-slate-500 font-mono" id="tableCountBadge">0 missing</span>
           </div>
           <div class="max-h-64 overflow-y-auto">
@@ -224,8 +239,8 @@
               <thead class="bg-slate-900/80 sticky top-0 text-slate-400 font-semibold border-b border-slate-800/80">
                 <tr>
                   <th class="py-2.5 px-4 w-16">#</th>
-                  <th class="py-2.5 px-4">Invoice Number</th>
-                  <th class="py-2.5 px-4 text-right">Status</th>
+                  <th class="py-2.5 px-4">Missing Invoice Number</th>
+                  <th class="py-2.5 px-4 text-right">Reason</th>
                 </tr>
               </thead>
               <tbody id="missingTableBody" class="divide-y divide-slate-800/60 font-mono">
@@ -255,6 +270,9 @@
     let detectedMin = null;
     let detectedMax = null;
 
+    let totalFilledCellsCount = 0;
+    let nonYellowCellsCount = 0;
+
     // Elements
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('excelFile');
@@ -271,6 +289,10 @@
 
     const rangeSection = document.getElementById('rangeSection');
     const detectedStatusMsg = document.getElementById('detectedStatusMsg');
+    const cardTotalCells = document.getElementById('cardTotalCells');
+    const cardYellowCells = document.getElementById('cardYellowCells');
+    const cardNonYellowCells = document.getElementById('cardNonYellowCells');
+
     const startNum = document.getElementById('startNum');
     const endNum = document.getElementById('endNum');
     const btnAutoRange = document.getElementById('btnAutoRange');
@@ -416,31 +438,39 @@
 
     async function processWorksheet(sheet) {
       yellowNumbers.clear();
-      let totalCells = 0;
+      totalFilledCellsCount = 0;
+      nonYellowCellsCount = 0;
 
       sheet.eachRow((row) => {
         row.eachCell((cell) => {
-          totalCells++;
-          if (cell.value !== null && cell.value !== undefined) {
+          if (cell.value !== null && cell.value !== undefined && cell.value !== '') {
+            totalFilledCellsCount++;
             let val = cell.value;
             if (typeof val === 'object') {
               val = val.result || val.text || '';
             }
+
             if (isYellow(cell.fill)) {
               const num = extractInvoiceNum(val);
               if (num !== null) {
                 yellowNumbers.add(num);
               }
+            } else {
+              nonYellowCellsCount++;
             }
           }
         });
       });
 
+      cardTotalCells.textContent = totalFilledCellsCount.toLocaleString();
+      cardYellowCells.textContent = yellowNumbers.size.toLocaleString();
+      cardNonYellowCells.textContent = nonYellowCellsCount.toLocaleString();
+
       if (yellowNumbers.size === 0) {
         rangeSection.classList.add('hidden');
         resultsSection.classList.remove('hidden');
         statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-amber-950/50 border-amber-800 text-amber-300';
-        statusAlert.innerHTML = `⚠️ No yellow-highlighted cells containing invoice numbers were found in <strong>"${sheet.name}"</strong>.`;
+        statusAlert.innerHTML = `⚠️ No yellow-highlighted cells containing invoice numbers were found in <strong>"${sheet.name}"</strong> (Total non-yellow cells: ${nonYellowCellsCount}).`;
         downloadReportBtn.classList.add('hidden');
         tableContainer.classList.add('hidden');
         resetMetrics(0, 0, 0, 0);
@@ -453,8 +483,9 @@
 
       detectedStatusMsg.innerHTML = `
         Discovered <strong>${yellowNumbers.size}</strong> yellow-highlighted invoices in <strong>"${sheet.name}"</strong>.<br>
-        Detected Minimum: <span class="font-mono font-bold text-white">${detectedMin}</span> &bull; 
-        Maximum: <span class="font-mono font-bold text-white">${detectedMax}</span>
+        Also detected <strong>${nonYellowCellsCount}</strong> non-yellow cells.<br>
+        Yellow Range &bull; Min: <span class="font-mono font-bold text-white">${detectedMin}</span> &bull; 
+        Max: <span class="font-mono font-bold text-white">${detectedMax}</span>
       `;
 
       startNum.value = detectedMin;
@@ -505,17 +536,17 @@
 
       resetMetrics(totalExpected, foundCount, missingCount, completionRate);
 
-      reportSummarySubtitle.textContent = `Range: ${start} → ${end} (${totalExpected} invoices checked)`;
+      reportSummarySubtitle.textContent = `Range: ${start} → ${end} (${totalExpected} numbers checked against Yellow highlights)`;
       resultsSection.classList.remove('hidden');
 
       if (missingCount === 0) {
         statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-emerald-950/60 border-emerald-800 text-emerald-300';
-        statusAlert.innerHTML = `🎉 <strong>Audit Passed:</strong> 100% complete! No missing invoices found between ${start} and ${end}.`;
+        statusAlert.innerHTML = `🎉 <strong>Audit Passed:</strong> 100% complete! All numbers between ${start} and ${end} are highlighted in yellow.`;
         tableContainer.classList.add('hidden');
         downloadReportBtn.classList.remove('hidden');
       } else {
         statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-rose-950/50 border-rose-800 text-rose-300';
-        statusAlert.innerHTML = `⚠️ <strong>Discrepancies Found:</strong> Detected <strong>${missingCount}</strong> missing invoice numbers in the selected range.`;
+        statusAlert.innerHTML = `⚠️ <strong>Discrepancies Found:</strong> Detected <strong>${missingCount}</strong> invoice numbers not highlighted in yellow within range.`;
 
         missingTableBody.innerHTML = '';
         missingList.forEach((num, index) => {
@@ -526,7 +557,7 @@
             <td class="py-2.5 px-4 font-bold text-slate-200">${num}</td>
             <td class="py-2.5 px-4 text-right">
               <span class="inline-block px-2 py-0.5 text-[10px] rounded-md font-semibold bg-rose-950/80 text-rose-400 border border-rose-800">
-                Missing
+                Not Yellow / Missing
               </span>
             </td>
           `;
@@ -559,18 +590,20 @@
 
       let csv = `INVOICE AUDIT REPORT\n`;
       csv += `Generated On,${new Date().toLocaleString()}\n`;
+      csv += `Active Worksheet,${sheetSelect.value}\n`;
+      csv += `Total Non-Yellow Cells in Sheet,${nonYellowCellsCount}\n`;
       csv += `Range Evaluated,${start} to ${end}\n`;
-      csv += `Total Invoices,${total}\n`;
-      csv += `Yellow Invoices Found,${found}\n`;
-      csv += `Missing Count,${missingCount}\n`;
-      csv += `Completion Rate,${rate}\n\n`;
+      csv += `Total Numbers in Range,${total}\n`;
+      csv += `Yellow Invoices Present,${found}\n`;
+      csv += `Missing from Yellow,${missingCount}\n`;
+      csv += `Yellow Match Rate,${rate}\n\n`;
       csv += `Index,Missing Invoice Number,Status\n`;
 
       if (missingList.length === 0) {
-        csv += `1,None,All Present\n`;
+        csv += `1,None,All Present in Yellow\n`;
       } else {
         missingList.forEach((num, idx) => {
-          csv += `${idx + 1},${num},Missing\n`;
+          csv += `${idx + 1},${num},Not Highlighted in Yellow\n`;
         });
       }
 
