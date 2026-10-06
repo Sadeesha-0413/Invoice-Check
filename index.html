@@ -55,21 +55,21 @@
         Invoice Audit & Missing Tracker
       </h1>
       <p class="text-slate-400 mt-2 text-sm max-w-md mx-auto">
-        Scan yellow-highlighted invoices, check unhighlighted cell counts, and generate professional PDF audit reports.
+        Scan yellow-highlighted invoices, handle massive numeric ranges (up to billions), and generate comprehensive PDF audit reports.
       </p>
     </header>
 
-    <!-- System Limitations Accordion/Card -->
+    <!-- System Capabilities & Limitations Card -->
     <section class="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 text-xs text-slate-400 space-y-2">
       <div class="flex items-center gap-2 font-semibold text-slate-300">
         <span class="text-amber-400 text-sm">ℹ️</span>
-        <span>System Limits & Capabilities</span>
+        <span>System Capabilities & Architecture</span>
       </div>
       <ul class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] list-disc list-inside text-slate-400">
-        <li>Supports standard <strong class="text-slate-300">.xlsx</strong> Excel files only.</li>
-        <li>Extracts background yellow highlights (Direct fill colors).</li>
-        <li>Recommended scan range: up to <strong class="text-slate-300">500,000 invoices</strong> per audit.</li>
-        <li>Processes 100% securely inside your browser (Client-side memory).</li>
+        <li>Supports standard <strong class="text-slate-300">.xlsx</strong> Excel spreadsheets.</li>
+        <li>Identifies background yellow fills reliably.</li>
+        <li><strong class="text-slate-300">High-Performance Range Engine:</strong> Handles massive ranges (1 to 10B+) via Gap Intervals.</li>
+        <li>100% Client-side execution without external database limits.</li>
       </ul>
     </section>
 
@@ -178,18 +178,18 @@
           <div class="space-y-1.5">
             <label class="block text-xs font-medium text-slate-300">Start Invoice Number</label>
             <input 
-              type="number" 
+              type="text" 
               id="startNum" 
-              placeholder="e.g. 1001"
+              placeholder="e.g. 1"
               class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" 
             />
           </div>
           <div class="space-y-1.5">
             <label class="block text-xs font-medium text-slate-300">End Invoice Number</label>
             <input 
-              type="number" 
+              type="text" 
               id="endNum" 
-              placeholder="e.g. 1500"
+              placeholder="e.g. 10000000000"
               class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2.5 text-sm font-mono text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" 
             />
           </div>
@@ -241,19 +241,19 @@
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center" id="metricsGrid">
           <div class="bg-slate-950/70 border border-slate-800 p-3 rounded-xl">
             <span class="text-[11px] text-slate-400 block mb-0.5">Range Total</span>
-            <span class="text-lg font-bold font-mono text-slate-200" id="mTotal">0</span>
+            <span class="text-base font-bold font-mono text-slate-200" id="mTotal">0</span>
           </div>
           <div class="bg-slate-950/70 border border-slate-800 p-3 rounded-xl">
             <span class="text-[11px] text-slate-400 block mb-0.5">Yellow Present</span>
-            <span class="text-lg font-bold font-mono text-amber-400" id="mFound">0</span>
+            <span class="text-base font-bold font-mono text-amber-400" id="mFound">0</span>
           </div>
           <div class="bg-slate-950/70 border border-slate-800 p-3 rounded-xl">
             <span class="text-[11px] text-slate-400 block mb-0.5">Missing Count</span>
-            <span class="text-lg font-bold font-mono text-rose-400" id="mMissing">0</span>
+            <span class="text-base font-bold font-mono text-rose-400" id="mMissing">0</span>
           </div>
           <div class="bg-slate-950/70 border border-slate-800 p-3 rounded-xl">
             <span class="text-[11px] text-slate-400 block mb-0.5">Yellow Match Rate</span>
-            <span class="text-lg font-bold font-mono text-cyan-400" id="mRate">0%</span>
+            <span class="text-base font-bold font-mono text-cyan-400" id="mRate">0%</span>
           </div>
         </div>
 
@@ -262,16 +262,16 @@
         <!-- Missing Table Container -->
         <div id="tableContainer" class="border border-slate-800 rounded-2xl overflow-hidden bg-slate-950/50 hidden">
           <div class="px-4 py-2.5 bg-slate-800/60 border-b border-slate-800 flex justify-between items-center text-xs">
-            <span class="font-semibold text-slate-300">Missing / Unhighlighted Numbers</span>
-            <span class="text-slate-400 font-mono" id="tableCountBadge">0 missing</span>
+            <span class="font-semibold text-slate-300">Missing Range Gaps / Discrepancies</span>
+            <span class="text-slate-400 font-mono" id="tableCountBadge">0 gaps</span>
           </div>
           <div class="max-h-64 overflow-y-auto">
             <table class="w-full text-left text-xs">
               <thead class="bg-slate-900/80 sticky top-0 text-slate-400 font-semibold border-b border-slate-800/80">
                 <tr>
                   <th class="py-2.5 px-4 w-16">#</th>
-                  <th class="py-2.5 px-4">Invoice Number</th>
-                  <th class="py-2.5 px-4 text-right">Status</th>
+                  <th class="py-2.5 px-4">Missing Invoice / Gap Span</th>
+                  <th class="py-2.5 px-4 text-right">Missing Quantity</th>
                 </tr>
               </thead>
               <tbody id="missingTableBody" class="divide-y divide-slate-800/60 font-mono">
@@ -295,7 +295,7 @@
     let currentWorkbook = null;
     let yellowNumbers = new Set();
     let nonYellowNumbers = new Set();
-    let missingList = [];
+    let missingGaps = [];
     let detectedMin = null;
     let detectedMax = null;
 
@@ -347,7 +347,6 @@
     const mMissing = document.getElementById('mMissing');
     const mRate = document.getElementById('mRate');
 
-    // Helper: Show & Hide Inline Errors
     function showError(title, message) {
       appErrorTitle.textContent = title;
       appErrorDesc.textContent = message;
@@ -359,13 +358,11 @@
       appErrorBanner.classList.add('hidden');
     }
 
-    // Dropzone Click
     dropZone.addEventListener('click', () => {
       clearError();
       fileInput.click();
     });
 
-    // Drag and Drop Listeners
     ['dragenter', 'dragover'].forEach(eventName => {
       dropZone.addEventListener(eventName, (e) => {
         e.preventDefault();
@@ -511,11 +508,11 @@
     }
 
     function extractInvoiceNum(val) {
-      if (typeof val === 'number') return Math.floor(val);
+      if (typeof val === 'number') return BigInt(Math.floor(val));
       if (typeof val === 'string') {
         const matches = val.match(/\d+/g);
         if (matches && matches.length > 0) {
-          return parseInt(matches[matches.length - 1], 10);
+          return BigInt(matches[matches.length - 1]);
         }
       }
       return null;
@@ -540,12 +537,12 @@
 
             if (isYellow(cell.fill)) {
               if (num !== null) {
-                yellowNumbers.add(num);
+                yellowNumbers.add(num.toString());
               }
             } else {
               nonYellowCellsCount++;
               if (num !== null) {
-                nonYellowNumbers.add(num);
+                nonYellowNumbers.add(num.toString());
               }
             }
           }
@@ -560,25 +557,26 @@
         rangeSection.classList.add('hidden');
         resultsSection.classList.remove('hidden');
         statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-amber-950/50 border-amber-800 text-amber-300';
-        statusAlert.innerHTML = `⚠️️ No yellow-highlighted cells containing invoice numbers were found in <strong>"${sheet.name}"</strong> (Total non-yellow cells: ${nonYellowCellsCount}).`;
+        statusAlert.innerHTML = `⚠️ No yellow-highlighted cells containing invoice numbers were found in <strong>"${sheet.name}"</strong>.`;
+        downloadPdfBtn.classList.add('hidden');
         tableContainer.classList.add('hidden');
-        resetMetrics(0, 0, 0, 0);
+        resetMetrics("0", "0", "0", 0);
         return;
       }
 
-      const arr = Array.from(yellowNumbers);
-      detectedMin = Math.min(...arr);
-      detectedMax = Math.max(...arr);
+      const arr = Array.from(yellowNumbers).map(n => BigInt(n));
+      detectedMin = arr.reduce((m, e) => e < m ? e : m, arr[0]);
+      detectedMax = arr.reduce((m, e) => e > m ? e : m, arr[0]);
 
       detectedStatusMsg.innerHTML = `
-        Discovered <strong>${yellowNumbers.size}</strong> yellow-highlighted invoices in <strong>"${sheet.name}"</strong>.<br>
-        Also detected <strong>${nonYellowCellsCount}</strong> non-yellow cells.<br>
-        Yellow Range &bull; Min: <span class="font-mono font-bold text-white">${detectedMin}</span> &bull; 
-        Max: <span class="font-mono font-bold text-white">${detectedMax}</span>
+        Discovered <strong>${yellowNumbers.size.toLocaleString()}</strong> yellow-highlighted invoices in <strong>"${sheet.name}"</strong>.<br>
+        Also detected <strong>${nonYellowCellsCount.toLocaleString()}</strong> non-yellow cells.<br>
+        Detected Yellow Range &bull; Min: <span class="font-mono font-bold text-white">${detectedMin.toLocaleString()}</span> &bull; 
+        Max: <span class="font-mono font-bold text-white">${detectedMax.toLocaleString()}</span>
       `;
 
-      startNum.value = detectedMin;
-      endNum.value = detectedMax;
+      startNum.value = detectedMin.toString();
+      endNum.value = detectedMax.toString();
 
       rangeSection.classList.remove('hidden');
       resultsSection.classList.add('hidden');
@@ -587,8 +585,8 @@
     btnAutoRange.addEventListener('click', () => {
       clearError();
       if (detectedMin !== null && detectedMax !== null) {
-        startNum.value = detectedMin;
-        endNum.value = detectedMax;
+        startNum.value = detectedMin.toString();
+        endNum.value = detectedMax.toString();
       }
     });
 
@@ -598,80 +596,109 @@
       endNum.value = '';
     });
 
+    // High-Scale BigInt Interval Gap Checking Logic
     findBtn.addEventListener('click', () => {
       clearError();
 
-      const start = parseInt(startNum.value, 10);
-      const end = parseInt(endNum.value, 10);
+      let start, end;
+      try {
+        const rawStart = startNum.value.trim().replace(/,/g, '');
+        const rawEnd = endNum.value.trim().replace(/,/g, '');
 
-      if (isNaN(start) || isNaN(end)) {
-        showError("Invalid Range Input", "Please provide valid numbers for both Start and End invoice fields.");
+        if (!rawStart || !rawEnd) {
+          showError("Input Required", "Please enter both Start and End invoice numbers.");
+          return;
+        }
+
+        start = BigInt(rawStart);
+        end = BigInt(rawEnd);
+      } catch (e) {
+        showError("Invalid Number Format", "Please provide valid whole numbers. Decimal points and symbols are not allowed.");
+        return;
+      }
+
+      if (start < 0n || end < 0n) {
+        showError("Negative Value Error", "Invoice numbers must be positive integers.");
         return;
       }
 
       if (start > end) {
-        showError("Invalid Sequence Range", "The Start Number cannot be larger than the End Number. Please correct the values.");
+        showError("Invalid Range Sequence", "Start Number cannot be greater than End Number. Please adjust the range.");
         return;
       }
 
-      const totalExpected = end - start + 1;
+      // Filter and sort only yellow invoices falling in the user's defined range
+      const sortedYellow = Array.from(yellowNumbers)
+        .map(n => BigInt(n))
+        .filter(n => n >= start && n <= end)
+        .sort((a, b) => (a < b ? -1n : a > b ? 1n : 0n));
 
-      // Safe System Boundary (Display friendly error instead of crashing)
-      if (totalExpected > 1000000) {
-        showError("Range Exceeds System Boundary", `The requested range span is ${totalExpected.toLocaleString()} invoices. The maximum permitted audit size is 1,000,000 numbers to safeguard browser memory.`);
-        return;
-      }
+      missingGaps = [];
+      let current = start;
+      let totalMissingCount = 0n;
 
-      missingList = [];
-      const MAX_SAFE_MISSING = 150000;
-
-      for (let i = start; i <= end; i++) {
-        if (!yellowNumbers.has(i)) {
-          const status = nonYellowNumbers.has(i) ? "Not Yellow (Present in Sheet)" : "Missing (Not in Sheet)";
-          missingList.push({ number: i, reason: status });
-
-          if (missingList.length >= MAX_SAFE_MISSING) {
-            showError("Missing Data Cap Reached", `Over ${MAX_SAFE_MISSING.toLocaleString()} discrepancies detected. Processing was capped at this limit to protect system performance.`);
-            break;
-          }
+      for (let i = 0; i < sortedYellow.length; i++) {
+        const num = sortedYellow[i];
+        if (num > current) {
+          const gapStart = current;
+          const gapEnd = num - 1n;
+          const count = gapEnd - gapStart + 1n;
+          totalMissingCount += count;
+          missingGaps.push({ from: gapStart, to: gapEnd, count: count });
         }
+        current = num + 1n;
       }
 
-      const missingCount = missingList.length;
-      const foundCount = Math.max(0, totalExpected - missingCount);
-      const completionRate = totalExpected > 0 ? ((foundCount / totalExpected) * 100).toFixed(1) : 0;
+      if (current <= end) {
+        const gapStart = current;
+        const gapEnd = end;
+        const count = gapEnd - gapStart + 1n;
+        totalMissingCount += count;
+        missingGaps.push({ from: gapStart, to: gapEnd, count: count });
+      }
 
-      resetMetrics(totalExpected.toLocaleString(), foundCount.toLocaleString(), missingCount.toLocaleString(), completionRate);
+      const totalExpected = end - start + 1n;
+      const foundCount = BigInt(sortedYellow.length);
+      const completionRate = totalExpected > 0n 
+        ? ((Number(foundCount) / Number(totalExpected)) * 100).toFixed(4) 
+        : 0;
 
-      reportSummarySubtitle.textContent = `Range: ${start} → ${end} (${totalExpected.toLocaleString()} checked)`;
+      resetMetrics(
+        totalExpected.toLocaleString(), 
+        foundCount.toLocaleString(), 
+        totalMissingCount.toLocaleString(), 
+        completionRate
+      );
+
+      reportSummarySubtitle.textContent = `Range: ${start.toLocaleString()} → ${end.toLocaleString()}`;
       resultsSection.classList.remove('hidden');
 
-      if (missingCount === 0) {
+      if (missingGaps.length === 0) {
         statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-emerald-950/60 border-emerald-800 text-emerald-300';
-        statusAlert.innerHTML = `🎉 <strong>Audit Passed:</strong> 100% complete! All numbers between ${start} and ${end} are highlighted in yellow.`;
+        statusAlert.innerHTML = `🎉 <strong>Audit Passed:</strong> 100% complete! All numbers between ${start.toLocaleString()} and ${end.toLocaleString()} are highlighted in yellow.`;
         tableContainer.classList.add('hidden');
+        downloadPdfBtn.classList.remove('hidden');
       } else {
         statusAlert.className = 'p-3.5 rounded-xl text-xs font-medium border bg-rose-950/50 border-rose-800 text-rose-300';
-        statusAlert.innerHTML = `⚠️ <strong>Discrepancies Found:</strong> Detected <strong>${missingCount.toLocaleString()}</strong> numbers not highlighted in yellow within range.`;
+        statusAlert.innerHTML = `⚠️️ <strong>Discrepancies Found:</strong> A total of <strong>${totalMissingCount.toLocaleString()}</strong> invoice numbers are missing from yellow highlights.`;
 
         missingTableBody.innerHTML = '';
-        const displayLimit = Math.min(missingList.length, 500);
+        const displayLimit = Math.min(missingGaps.length, 500);
         let rowsHtml = '';
         
         for (let index = 0; index < displayLimit; index++) {
-          const item = missingList[index];
-          const isPresentNotYellow = item.reason.includes("Not Yellow");
-          const badgeClass = isPresentNotYellow 
-            ? "bg-amber-950/80 text-amber-300 border-amber-800" 
-            : "bg-rose-950/80 text-rose-400 border-rose-800";
+          const gap = missingGaps[index];
+          const spanText = gap.from === gap.to 
+            ? `${gap.from.toLocaleString()}` 
+            : `${gap.from.toLocaleString()} — ${gap.to.toLocaleString()}`;
 
           rowsHtml += `
             <tr class="hover:bg-slate-900/60 transition">
-              <td class="py-2 px-4 text-slate-500">${index + 1}</td>
-              <td class="py-2 px-4 font-bold text-slate-200">${item.number}</td>
-              <td class="py-2 px-4 text-right">
-                <span class="inline-block px-2 py-0.5 text-[10px] rounded-md font-semibold border ${badgeClass}">
-                  ${item.reason}
+              <td class="py-2.5 px-4 text-slate-500">${index + 1}</td>
+              <td class="py-2.5 px-4 font-bold text-slate-200">${spanText}</td>
+              <td class="py-2.5 px-4 text-right">
+                <span class="inline-block px-2 py-0.5 text-[10px] rounded-md font-semibold border bg-rose-950/80 text-rose-400 border-rose-800">
+                  ${gap.count.toLocaleString()} missing
                 </span>
               </td>
             </tr>
@@ -679,13 +706,14 @@
         }
         missingTableBody.innerHTML = rowsHtml;
 
-        if (missingList.length > 500) {
-          tableCountBadge.textContent = `Showing 500 of ${missingList.length.toLocaleString()} (Download PDF for report)`;
+        if (missingGaps.length > 500) {
+          tableCountBadge.textContent = `Showing 500 of ${missingGaps.length.toLocaleString()} gap intervals`;
         } else {
-          tableCountBadge.textContent = `${missingCount.toLocaleString()} items`;
+          tableCountBadge.textContent = `${missingGaps.length.toLocaleString()} gap intervals`;
         }
 
         tableContainer.classList.remove('hidden');
+        downloadPdfBtn.classList.remove('hidden');
       }
 
       resultsSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -698,7 +726,7 @@
       mRate.textContent = `${rate}%`;
     }
 
-    // PDF Report Generator
+    // PDF Report Generator (Formatted with High-Precision BigInt Gap Ranges)
     downloadPdfBtn.addEventListener('click', () => {
       clearError();
       const { jsPDF } = window.jspdf;
@@ -736,9 +764,9 @@
 
         const summaryData = [
           ["Evaluated Range", `${start} to ${end}`],
-          ["Total Numbers in Range", total],
+          ["Total Invoices in Range", total],
           ["Yellow Invoices Present", found],
-          ["Missing / Unhighlighted Count", missingCount],
+          ["Total Missing Numbers", missingCount],
           ["Yellow Match Compliance", `${rate}%`],
           ["Non-Yellow Cells in Sheet", nonYellowCellsCount.toLocaleString()]
         ];
@@ -753,48 +781,48 @@
           columnStyles: { 0: { cellWidth: 80, fontStyle: 'bold' }, 1: { cellWidth: 100 } }
         });
 
-        // Section: Missing / Not Yellow Table
+        // Section: Missing Gap Ranges Table
         const finalY = doc.lastAutoTable.finalY + 10;
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(30, 41, 59);
-        doc.text("2. Missing & Unhighlighted Invoices", 14, finalY);
+        doc.text("2. Missing Invoice Gap Intervals", 14, finalY);
 
         let tableRows = [];
-        if (missingList.length === 0) {
-          tableRows.push(["1", "None", "All Present in Yellow Highlights"]);
+        if (missingGaps.length === 0) {
+          tableRows.push(["1", "None", "All Invoices Present in Yellow Highlights"]);
         } else {
-          const pdfLimit = Math.min(missingList.length, 3000);
+          const pdfLimit = Math.min(missingGaps.length, 3000);
           for (let i = 0; i < pdfLimit; i++) {
+            const gap = missingGaps[i];
+            const spanText = gap.from === gap.to 
+              ? `${gap.from.toLocaleString()}` 
+              : `${gap.from.toLocaleString()} — ${gap.to.toLocaleString()}`;
+
             tableRows.push([
               (i + 1).toString(),
-              missingList[i].number.toString(),
-              missingList[i].reason
+              spanText,
+              `${gap.count.toLocaleString()} missing`
             ]);
           }
         }
 
         doc.autoTable({
           startY: finalY + 4,
-          head: [['#', 'Invoice Number', 'Audit Findings']],
+          head: [['#', 'Missing Invoice Span', 'Missing Quantity']],
           body: tableRows,
           theme: 'grid',
           headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold' },
           styles: { fontSize: 8, cellPadding: 2.5 },
           columnStyles: {
             0: { cellWidth: 18, halign: 'center' },
-            1: { cellWidth: 55, fontStyle: 'bold' },
-            2: { cellWidth: 110 }
+            1: { cellWidth: 110, fontStyle: 'bold' },
+            2: { cellWidth: 55, halign: 'right' }
           },
           didParseCell: function(data) {
             if (data.section === 'body' && data.column.index === 2) {
-              if (data.cell.raw && data.cell.raw.includes("Not Yellow")) {
-                data.cell.styles.textColor = [180, 83, 9];
-                data.cell.styles.fontStyle = 'bold';
-              } else if (data.cell.raw && data.cell.raw.includes("Missing")) {
-                data.cell.styles.textColor = [225, 29, 72];
-                data.cell.styles.fontStyle = 'bold';
-              }
+              data.cell.styles.textColor = [225, 29, 72];
+              data.cell.styles.fontStyle = 'bold';
             }
           },
           didDrawPage: function(data) {
@@ -808,7 +836,7 @@
         doc.save(`Invoice_Audit_Report_${start}_to_${end}.pdf`);
       } catch (err) {
         console.error(err);
-        showError("PDF Generation Failed", "An error occurred while compiling the PDF document. Try selecting a smaller range.");
+        showError("PDF Generation Failed", "An error occurred while compiling the PDF document. Please try again.");
       }
     });
   </script>
